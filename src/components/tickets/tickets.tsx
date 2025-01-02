@@ -1,11 +1,12 @@
 import React, {useState, useEffect} from "react";
 import { useLocation } from 'react-router-dom';
-import {List, ListItem, ListItemText, Typography} from "@mui/material";
+import {Typography, Button} from "@mui/material";
 import {Ticket} from "../../types";
+// @ts-ignore
+import classes from './tickets.module.scss';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import {getTickets} from "../../api/ticketsApi";
-import ListLayout from "./listLayout/listLayout";
-import GridLayout from "./gridLayout/gridLayout";
+import {segmentConfig} from "../../config";
 
 
 const Tickets: React.FC = () => {
@@ -15,16 +16,13 @@ const Tickets: React.FC = () => {
     const limit = 10; // Number of tickets to fetch per page
     const location = useLocation();
     const params = new URLSearchParams(location.search);
-    const userType = params.get('userType');
-    const ticketLayout = {
-        local: <ListLayout tickets={moreTickets}/>,
-        tourist: <GridLayout tickets={moreTickets}/>,
-    }
+    const userType = params.get('userType') || '';
+    const SegmentComponent = segmentConfig[userType];
+
 
     const loadMoreTickets = async () => {
         try {
             const {tickets} = await getTickets(page, limit, userType);
-            console.log('---newTickets---', tickets)
             setMoreTickets((prevTickets) => [...prevTickets, ...tickets]);
             setPage((prevPage) => prevPage + 1);
             if (tickets.length < limit) {
@@ -37,36 +35,40 @@ const Tickets: React.FC = () => {
     };
 
     useEffect(() => {
-        loadMoreTickets();
+        userType && loadMoreTickets();
     }, []);
 
+    const handleButtonClick = (type: string) => {
+        window.location.href = `?userType=${type}`;
+    };
+
     return (
-        <div>
-            <Typography variant="h5" gutterBottom>
-                Event Ticket Manager
+        userType ? (
+            <div className={classes.ticketsWrapper}>
+                <div className={classes.adjustableWrapper}>
+                    <InfiniteScroll
+                        dataLength={moreTickets.length}
+                        next={loadMoreTickets}
+                        hasMore={hasMore}
+                        loader={<h4>Loading...</h4>}
+                        endMessage={<p><b>No more tickets to show</b></p>}
+                    >
+                        <SegmentComponent tickets={moreTickets} />
+                    </InfiniteScroll>
+                </div>
+            </div>
+        ) : (
+            <div className={classes.wrapper}>
+                <Typography variant="h5"  component="h2" gutterBottom>
+                    Event Ticket Manager
                 </Typography>
-            <InfiniteScroll
-                dataLength={moreTickets.length}
-                next={loadMoreTickets}
-                hasMore={hasMore}
-                loader={<h4>Loading...</h4>}
-                endMessage={<p><b>No more tickets to show</b></p>}
-            >
-                {
-                    React.cloneElement(ticketLayout[userType as keyof typeof ticketLayout], { tickets: moreTickets })
-                }
-                {/*{*/}
-                {/*    ticketLayout[userType as keyof typeof ticketLayout]*/}
-                {/*}*/}
-                {/*<List>*/}
-                {/*    {moreTickets.map((ticket, index) => (*/}
-                {/*        <ListItem key={index}>*/}
-                {/*            <ListItemText primary={`${ticket.title} - ${ticket.description} `} />*/}
-                {/*        </ListItem>*/}
-                {/*    ))}*/}
-                {/*</List>*/}
-            </InfiniteScroll>
-        </div>
+                <div className={classes.buttons}>
+                    <Button variant="outlined" color={'inherit'} onClick={() => handleButtonClick('local')}>Local Tickets</Button>
+                    <Button variant="outlined" color={'inherit'} onClick={() => handleButtonClick('tourist')}>Tourist Tickets</Button>
+                </div>
+            </div>
+
+        )
     );
 }
 
